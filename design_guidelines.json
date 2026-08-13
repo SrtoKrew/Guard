@@ -1,0 +1,166 @@
+{
+  "app_name": "Control Guardia",
+  "personality": "7 Dark-First Utility DARK",
+  "personality_one_liner": "A sharp, tactical, high-contrast command center designed for night shifts, fast scanning, and immediate operational response.",
+  "color": {
+    "surface": "#121212",
+    "onSurface": "#F5F5F5",
+    "surfaceSecondary": "#1E1E1E",
+    "onSurfaceSecondary": "#E0E0E0",
+    "surfaceTertiary": "#2C2C2C",
+    "onSurfaceTertiary": "#BDBDBD",
+    "surfaceInverse": "#F5F5F5",
+    "onSurfaceInverse": "#121212",
+    "brand": "#FF9800",
+    "brandPrimary": "#FF9800",
+    "onBrandPrimary": "#121212",
+    "brandSecondary": "#F57C00",
+    "onBrandSecondary": "#121212",
+    "brandTertiary": "#4A3219",
+    "onBrandTertiary": "#FFCC80",
+    "success": "#4CAF50",
+    "onSuccess": "#121212",
+    "warning": "#FFC107",
+    "onWarning": "#121212",
+    "error": "#F44336",
+    "onError": "#FFFFFF",
+    "info": "#9E9E9E",
+    "onInfo": "#121212",
+    "border": "#333333",
+    "borderStrong": "#555555",
+    "divider": "#2A2A2A"
+  },
+  "typography": {
+    "displayFontFamily": "Barlow Condensed",
+    "textFontFamily": "DM Sans",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24,
+      "3xl": 48
+    }
+  },
+  "spacing": {
+    "rule": "Dense, tactical spacing for high data visibility, with generous padding only at screen roots and bottom sticky containers.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 4,
+    "md": 8,
+    "lg": 12,
+    "pill": 999
+  },
+  "shadow_tier": "0",
+  "navigation": "bottom_tabs",
+  "icon_set": "MaterialCommunityIcons",
+  "glassmorphism": {
+    "enabled": "false",
+    "do's": [
+      "Use solid surfaceSecondary and surfaceTertiary for elevation."
+    ],
+    "dont's": [
+      "No blur or glassmorphism. This is a rugged, performance-first utility app."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "solid surfaceSecondary",
+      "android": "solid surfaceSecondary",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Identificación (Login)",
+      "purpose": "Simple guard check-in by name without complex auth.",
+      "states": {
+        "loading": "Centered brand-colored spinner.",
+        "empty": "N/A",
+        "error": "Error text below input if name is empty."
+      },
+      "layout": "Top half contains the security logo and app title. Middle contains a single large text input for 'Nombre del Guardia'. A massive sticky CTA 'Iniciar Turno' anchored to the bottom."
+    },
+    {
+      "name": "Panel de Control (Dashboard)",
+      "purpose": "Central operational hub displaying the real-time clock and immediate actions.",
+      "states": {
+        "loading": "Skeleton of the clock and action grid.",
+        "empty": "N/A",
+        "error": "Alert banner at the top if offline."
+      },
+      "layout": "Header: Guard name. Hero: Enormous digital clock (Barlow Condensed, huge size) on an abstract dark industrial background. Below clock: Shift status badge (e.g., 'En turno'). Main Body: Large split action buttons for 'Fichar Entrada' (success color) and 'Fichar Salida' (error color). Below that, a 2-column grid of quick actions: 'Ronda', 'Incidencia', 'Tareas'. No extra scroll needed."
+    },
+    {
+      "name": "Naves (Sites)",
+      "purpose": "Manage and view the assigned warehouses/sites.",
+      "states": {
+        "loading": "Skeleton cards.",
+        "empty": "Illustration of an empty map/building with text 'No hay naves asignadas' and 'Añadir Nave' button.",
+        "error": "Standard retry state."
+      },
+      "layout": "List of site cards. Each card uses the warehouse photo as a background, overlaid with a strict top-to-bottom dark scrim (transparent to ≥80% surfaceInverse). Site name in bold at the bottom of the card. A sticky FAB in brandPrimary at the bottom right to 'Añadir Nave'."
+    },
+    {
+      "name": "Control Horario (Time Log)",
+      "purpose": "A chronological log of all actions taken during the shift.",
+      "states": {
+        "loading": "Timeline skeleton.",
+        "empty": "Empty state icon (clock) 'No hay registros en este turno'.",
+        "error": "Standard retry state."
+      },
+      "layout": "Vertical timeline layout. Each event (Entrada, Ronda iniciada, Incidencia reportada) is a compact surfaceSecondary card with a timestamp on the left. A sticky bottom container with a full-width 'Exportar a PDF / Excel' button."
+    },
+    {
+      "name": "Reporte de Incidencia",
+      "purpose": "Fast capture of an anomaly or security issue.",
+      "states": {
+        "loading": "Submitting overlay.",
+        "empty": "N/A",
+        "error": "Validation errors on fields."
+      },
+      "layout": "Single-column form. Fields: 'Tipo de Incidencia' (Select), 'Nave / Ubicación' (Select), 'Descripción' (Multiline input). A large dashed-border area to 'Añadir Foto' (Camera trigger). Sticky bottom button 'Enviar Reporte'."
+    }
+  ],
+  "images": {
+    "hero_texture": {
+      "url": "https://images.unsplash.com/photo-1515799251528-8e14681f214e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2Mzl8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGRhcmslMjBpbmR1c3RyaWFsJTIwbWV0YWwlMjB0ZXh0dXJlfGVufDB8fHx8MTc4NjY2MjczMnww&ixlib=rb-4.1.0&q=85",
+      "alt": "Abstract dark industrial metal texture"
+    },
+    "nave_placeholder": {
+      "url": "https://images.unsplash.com/photo-1685459143116-efdf5fbee0dd?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzl8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjB3YXJlaG91c2UlMjBleHRlcmlvciUyMGJ1aWxkaW5nJTIwbmlnaHR8ZW58MHx8fHwxNzg2NjYyNzMzfDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Modern warehouse exterior building night"
+    },
+    "security_logo": {
+      "url": "https://images.unsplash.com/photo-1585842630354-c6766ebf210d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njd8MHwxfHNlYXJjaHwxfHxzZWN1cml0eSUyMHNoaWVsZCUyMGd1YXJkJTIwbG9nbyUyMHRyYW5zcGFyZW50JTIwcG5nfGVufDB8fHx8MTc4NjY2MjczMnww&ixlib=rb-4.1.0&q=85",
+      "alt": "Security shield logo"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Strictly adhere to the Spanish language for all UI text, placeholders, and navigation.",
+    "NO BLUES OR PURPLES. The palette is strictly dark grays and safety orange/amber. Do not introduce default blue links or indigo buttons.",
+    "The Dashboard clock must use the displayFontFamily ('Barlow Condensed') and be extremely prominent (font size > 48pt).",
+    "Use the 'bottom sticky CTA' pattern for major actions (Iniciar Turno, Exportar, Enviar Reporte). The button must live outside the ScrollView inside a fixed bottom container.",
+    "For the 'Naves' cards, you MUST overlay a top-to-bottom gradient scrim (`expo-linear-gradient`, transparent to ≥80% surfaceInverse) on top of the image before rendering text, ensuring contrast.",
+    "Do not use glassmorphism. This is a field ops utility app; use solid `surfaceSecondary` and `border` colors to establish hierarchy.",
+    "Implement haptic feedback (`expo-haptics`) on all key interactions: Fichar Entrada/Salida, starting a round, and submitting an incident."
+  ],
+  "haptics": {
+    "primary_button_press": "impactMedium",
+    "fichaje_toggle": "impactHeavy",
+    "tab_change": "selection",
+    "incident_submit": "notificationSuccess"
+  }
+}

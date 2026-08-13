@@ -1,0 +1,32 @@
+{
+  "summary": "First iteration testing of Control Guardia app. Backend: 17/17 pytest tests pass covering root, naves CRUD, events (8 valid types + rejection of invalid type + guard filter), tasks (create/list/toggle-with-event/undo/delete), incidents (creates matching 'incidencia' event), upload+get via Emergent Object Storage, and Excel/PDF exports (validated content-type + magic bytes). Frontend: identification screen -> panel navigation works, guard-name-input + start-shift-button save session, realtime-clock updates every second, fichar-entrada toggles 'EN TURNO' and fichar-salida toggles 'FUERA DE TURNO' correctly (buttons disable/enable per state), ronda-btn correctly alternates 'INICIAR RONDA' <-> 'FIN RONDA'. Tab navigation Panel/Naves/Tareas/Control all reachable. Control screen renders events with Excel/PDF export buttons. Naves FAB (fab-add-nave) opens nueva-nave modal successfully. UI in Spanish with dark theme + orange accent as required.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "global", "issues": ["Deprecation warnings in console: 'shadow*' style props deprecated (use boxShadow), TouchableWithoutFeedback deprecated (use Pressable), props.pointerEvents deprecated. Non-blocking but should be cleaned up."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Optional: Replace deprecated TouchableWithoutFeedback in app/index.tsx with Pressable and update shadow* style props to boxShadow to silence RN Web deprecation warnings."
+  ],
+  "critical_code_review_comments": [
+    "server.py correctly excludes MongoDB _id via projection {'_id': 0} and clean() helper.",
+    "Event type validation is enforced server-side (400 on invalid).",
+    "Toggle task and incident endpoints correctly create linked Event rows for the Control Horario timeline.",
+    "Frontend uses process.env.EXPO_PUBLIC_BACKEND_URL correctly; no hardcoded URLs.",
+    "All interactive elements have testID (guard-name-input, start-shift-button, realtime-clock, fichar-entrada-btn, fichar-salida-btn, ronda-btn, fab-add-nave, etc.)."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (17/17)", "frontend": "100% of tested flows"},
+  "seed_data_creation": "Tests create TEST_-prefixed naves/tasks and events for a TEST_guard_<uuid> guard. Naves and tasks are cleaned up in the same test run; events/incidents/uploads intentionally persist for export validation and are guard-scoped so they do not affect real users.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All backend endpoints working end-to-end including Emergent Object Storage upload/retrieve and Excel/PDF export. Frontend web preview loads, identification -> panel flow works, real-time clock live, fichar/ronda state machines correct, tabs and FAB navigation OK. If future iterations add auth or photo capture from web, revalidate upload flow (currently verified via direct multipart POST from backend test)."
+}
