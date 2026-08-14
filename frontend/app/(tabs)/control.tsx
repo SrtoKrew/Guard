@@ -13,18 +13,24 @@ const EVENT_LABEL: Record<string, string> = {
   ronda_inicio: 'Inicio de ronda', ronda_fin: 'Fin de ronda',
   tarea: 'Tarea completada', incidencia: 'Incidencia',
   descanso_inicio: 'Inicio descanso', descanso_fin: 'Fin descanso',
+  entrada_nave: 'Entrada a Nave', salida_nave: 'Salida de Nave',
+  llamada_centralita: 'Llamada Centralita', chequeo: 'Chequeo',
 };
 const EVENT_ICON: Record<string, string> = {
   entrada: 'login', salida: 'logout',
   ronda_inicio: 'walk', ronda_fin: 'flag-checkered',
   tarea: 'check-circle-outline', incidencia: 'alert-octagon',
   descanso_inicio: 'coffee', descanso_fin: 'coffee-off',
+  entrada_nave: 'location-enter', salida_nave: 'location-exit',
+  llamada_centralita: 'phone-in-talk', chequeo: 'checkbox-marked-circle-outline',
 };
 const EVENT_COLOR: Record<string, string> = {
   entrada: theme.color.success, salida: theme.color.error,
   ronda_inicio: theme.color.brand, ronda_fin: theme.color.warning,
   tarea: theme.color.success, incidencia: theme.color.error,
-  descanso_inicio: theme.color.info, descanso_fin: theme.color.info,
+  descanso_inicio: theme.color.onSurface, descanso_fin: theme.color.onSurface,
+  entrada_nave: theme.color.success, salida_nave: theme.color.brand,
+  llamada_centralita: theme.color.onSurface, chequeo: theme.color.onSurface,
 };
 
 export default function ControlScreen() {
@@ -56,7 +62,7 @@ export default function ControlScreen() {
 
   const openExport = async (kind: 'pdf' | 'excel') => {
     try { await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
-    const url = kind === 'pdf' ? api.exportPdfUrl(guard) : api.exportExcelUrl(guard);
+    const url = kind === 'pdf' ? api.exportPdfUrl({ guard }) : api.exportExcelUrl({ guard });
     try {
       await Linking.openURL(url);
     } catch {

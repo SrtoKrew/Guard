@@ -1,0 +1,49 @@
+{
+  "summary": "Tested Control Diario Asergrup rebranding + turnos/vehiculos restructuring. Backend: 23/23 new pytest tests + 17/17 legacy tests pass (40/40 total) after fixing a CRITICAL 500 error in POST /api/turnos/{id}/finalizar. Frontend (mobile viewport 375x667): verified full flow index -> servicio -> panel with auto turno start, confirmed NO 'Fichar entrada'/'ronda' buttons exist, FINALIZAR TURNO button present, DESCANSO/FIN DESCANSO render in bright white text (theme.color.onSurface) not gray, LLAMADA CENTRALITA modal works end-to-end, Naves tab shows seeded 'Cerámicas' nave, nave detail checks toggle correctly with checked_by/checked_at metadata, ENTRADA/SALIDA NAVE buttons work, 17 linea + 4 frente vehicles seeded with OK/VANDALIZADO badges, vehicle edit modal opens on card tap, add-vehicle modal creates new vehicle with vandalizado detail, Control tab shows EXPORTAR EXCEL/PDF buttons with correct branding. No 'Guardia' text found in codebase (all use 'Vigilante'). app.json name = 'Control Diario Asergrup' confirmed. Could NOT verify the Alert.alert-based 'Finalizar turno' confirmation dialog nor the resumen-turno screen via Playwright/web because react-native-web does not render Alert.alert as a native browser dialog (no window.confirm triggered, page.on('dialog') never fired) - this matches the known limitation flagged by main agent. Backend-level testing (pytest) fully validates the finalizar/resumen data (summary counts, duration, persistence) so the underlying logic is confirmed correct; only the on-web Alert UI trigger could not be exercised.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/turnos/{turno_id}/finalizar", "issue": "FIXED DURING TESTING: raised 500 Internal Server Error (TypeError: can't subtract offset-naive and offset-aware datetimes) because start_time read back from MongoDB loses tzinfo while end_time uses datetime.now(timezone.utc). This blocked the entire 'Finalizar turno' -> resumen-turno flow, the core deliverable of this iteration. Applied fix in server.py: normalize start_time to UTC-aware before subtracting. Restarted backend and re-ran full suite - all 23 new + 17 legacy tests pass.", "priority": "CRITICAL"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Finalizar turno confirmation Alert + resumen-turno navigation", "issue": "Could not be verified end-to-end via Playwright/web because RN Alert.alert does not produce a browser dialog on react-native-web (no window.confirm/alert call intercepted). Clicking 'finalizar-turno-btn' leaves user on /panel with no visible feedback on web. This is expected per RN-web limitations (already flagged by main agent) but means REAL web users (if the app is ever used via web preview instead of Expo Go/native) would see no confirmation prompt at all and the turno would never finalize from the web build. Recommend testing this specific flow manually in Expo Go / native build, or consider a custom in-app confirmation modal component (not Alert.alert) if web support matters.", "affected_testIDs": ["finalizar-turno-btn"]}
+    ],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "Tabs.Screen tabBarTestID", "issue": "tabBarTestID prop ('tab-panel', 'tab-naves', etc.) set in app/(tabs)/_layout.tsx does not render as data-testid on the underlying <a> tab elements in the web build. Not user-facing but reduces testability; had to fall back to a[href=\"/naves\"] selectors."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_asergrup.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results_asergrup.xml"
+  ],
+  "action_items": [
+    "Manually verify (or have main agent self-test in mobile/Expo Go mode) the Alert.alert 'Finalizar turno' confirmation -> POST finalizar -> navigate to /resumen-turno -> 'VOLVER AL INICIO' flow, since it could not be exercised via browser automation.",
+    "Optional: fix tabBarTestID not propagating to data-testid in web build for future testability.",
+    "Optional cleanup: TouchableWithoutFeedback deprecation warning in index.tsx, shadow* style deprecation warnings (non-blocking, pre-existing)."
+  ],
+  "critical_code_review_comments": [
+    "server.py finalizar_turno had a naive/aware datetime bug (now fixed) - good practice going forward: always normalize datetimes read from MongoDB to timezone-aware UTC before arithmetic.",
+    "Nave checks correctly keyed by (nave_id, turno_id, item_name) so they reset per turno as required - verified via pytest that a new turno for the same guard returns all checks unchecked.",
+    "Vehicle vandalizado state and photo_path correctly persist across turno start/finalize cycles (not turno-scoped) - verified via pytest.",
+    "Vehicle reorder endpoint persists order correctly across reload - verified via pytest (GET after POST /vehiculos/reorder returns same order).",
+    "start_turno is idempotent per guard (returns existing active turno instead of creating duplicate) - correct behavior for 'auto-start on service select'.",
+    "PDF export correctly uses brand color #E53935 in header per requirement.",
+    "No 'Guardia' terminology found anywhere in frontend codebase; all user-facing text uses 'Vigilante'.",
+    "DESCANSO/FIN DESCANSO quick actions correctly styled with theme.color.onSurface (bright white/#F2F4F7), not gray/disabled-looking, matching requirement."
+  ],
+  "updated_files": [
+    "/app/backend/server.py",
+    "/app/backend/tests/test_asergrup.py"
+  ],
+  "success_rate": {"backend": "100% (40/40)", "frontend": "~90% of testable flows (Alert-dependent finalizar->resumen navigation not exercisable on web)"},
+  "seed_data_creation": "Backend tests create TEST_-prefixed guards/vehicles/turnos; vehicle test data is cleaned up (deleted) at end of test class. Turno/event test data intentionally left (harmless, guard-scoped with TEST_ prefix).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Critical finalizar_turno 500 bug is fixed and verified via pytest (23/23 new tests pass covering turno lifecycle, nave-checks reset-per-turno, vehicle CRUD/reorder/persistence). The one flow not verifiable via Playwright/web is the Alert.alert-based 'Finalizar turno' confirmation and subsequent resumen-turno screen, since react-native-web doesn't surface Alert as a browser dialog - main agent should self-test this in Expo Go/native or manually via the emulator/preview if it supports native Alert rendering. All other requested features (drag-handle vehicles, checks reset per turno, branding, terminology, seeded Cerámicas nave with 17+4 vehicles, badges, quick actions) are confirmed working both at API and UI level.",
+  "rca_of_issue": "finalizar_turno endpoint compared datetime.now(timezone.utc) (aware) against row['start_time'] read from MongoDB via motor, which returns naive datetime objects (pymongo/motor by default deserializes BSON dates as naive UTC datetime unless tz_aware client option is set). Subtracting aware - naive datetime raises TypeError, causing FastAPI to return 500. Fixed by checking start_time.tzinfo is None and attaching timezone.utc before subtraction."
+}

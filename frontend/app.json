@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Control Guardia",
+    "name": "Control Diario Asergrup",
     "slug": "frontend",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,8 +12,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.emergent.guardscheduler.ti9dj2",
       "infoPlist": {
-        "NSCameraUsageDescription": "Adjuntar fotos de evidencia en incidencias",
-        "NSPhotoLibraryUsageDescription": "Adjuntar imágenes de evidencia en incidencias"
+        "NSCameraUsageDescription": "Fotografiar evidencias de incidencias y vehículos",
+        "NSPhotoLibraryUsageDescription": "Adjuntar imágenes de incidencias y vehículos"
       }
     },
     "android": {
@@ -35,8 +35,8 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": "Adjuntar fotos de evidencia en incidencias",
-          "photosPermission": "Adjuntar imágenes de evidencia en incidencias"
+          "cameraPermission": "Fotografiar evidencias de incidencias y vehículos",
+          "photosPermission": "Adjuntar imágenes de incidencias y vehículos"
         }
       ],
       [

@@ -33,7 +33,13 @@ export default function RootLayout() {
           }}
         >
           <Stack.Screen name="index" />
+          <Stack.Screen name="servicio" />
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="nave/[id]" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen
+            name="resumen-turno"
+            options={{ gestureEnabled: false }}
+          />
           <Stack.Screen
             name="incidencia"
             options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
@@ -44,6 +50,14 @@ export default function RootLayout() {
           />
           <Stack.Screen
             name="nueva-tarea"
+            options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+          />
+          <Stack.Screen
+            name="vehiculo"
+            options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+          />
+          <Stack.Screen
+            name="llamada"
             options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
           />
         </Stack>

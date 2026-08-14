@@ -27,8 +27,11 @@ export default function IndexScreen() {
   useEffect(() => {
     (async () => {
       const g = await session.getGuard();
-      if (g) {
+      const turnoId = await session.getTurnoId();
+      if (g && turnoId) {
         router.replace('/(tabs)/panel');
+      } else if (g) {
+        router.replace('/servicio');
       }
     })();
   }, [router]);
@@ -36,12 +39,12 @@ export default function IndexScreen() {
   const onStart = async () => {
     const clean = name.trim();
     if (!clean) {
-      setError('Introduce tu nombre para iniciar el turno');
+      setError('Introduce tu nombre para continuar');
       return;
     }
     await session.setGuard(clean);
     try { await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
-    router.replace('/(tabs)/panel');
+    router.replace('/servicio');
   };
 
   return (
@@ -60,14 +63,17 @@ export default function IndexScreen() {
                 style={styles.heroBg}
               />
               <View style={styles.logo}>
-                <MaterialCommunityIcons name="shield-check" size={72} color={theme.color.brand} />
+                <MaterialCommunityIcons name="shield-home" size={64} color={theme.color.brand} />
               </View>
-              <Text style={styles.appName}>CONTROL GUARDIA</Text>
-              <Text style={styles.appSubtitle}>Servicio de seguridad</Text>
+              <Text style={styles.appName}>
+                <Text style={{ color: theme.color.brand }}>ASER</Text>
+                <Text style={{ color: theme.color.onSurface }}>GRUP</Text>
+              </Text>
+              <Text style={styles.appSubtitle}>Control Diario · Seguridad Integral</Text>
             </View>
 
             <View style={styles.form}>
-              <Text style={styles.label}>Nombre del guardia</Text>
+              <Text style={styles.label}>Nombre del vigilante</Text>
               <TextInput
                 testID="guard-name-input"
                 style={styles.input}
@@ -88,8 +94,8 @@ export default function IndexScreen() {
                 style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.85 }]}
                 onPress={onStart}
               >
-                <MaterialCommunityIcons name="clock-start" size={22} color={theme.color.onBrand} />
-                <Text style={styles.primaryBtnText}>INICIAR TURNO</Text>
+                <Text style={styles.primaryBtnText}>CONTINUAR</Text>
+                <MaterialCommunityIcons name="arrow-right" size={22} color={theme.color.onBrand} />
               </Pressable>
             </View>
           </View>

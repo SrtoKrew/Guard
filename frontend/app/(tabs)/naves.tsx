@@ -62,6 +62,7 @@ export default function NavesScreen() {
         renderItem={({ item }) => (
           <Pressable
             testID={`nave-card-${item.id}`}
+            onPress={() => router.push(`/nave/${item.id}`)}
             onLongPress={() => onDelete(item)}
             style={({ pressed }) => [styles.card, pressed && { opacity: 0.9 }]}
           >

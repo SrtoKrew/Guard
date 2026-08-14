@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
-import { theme } from '@/src/theme';
-import { api, session, Event } from '@/src/api';
+import { theme, EVENT_LABELS, EVENT_ICONS } from '@/src/theme';
+import { api, session, Event, Turno } from '@/src/api';
 
 function useNow() {
   const [now, setNow] = useState(new Date());
@@ -29,25 +29,49 @@ function formatDate(d: Date) {
   return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+function formatElapsed(startIso?: string, now?: Date) {
+  if (!startIso || !now) return '—';
+  const secs = Math.max(0, Math.floor((now.getTime() - new Date(startIso).getTime()) / 1000));
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  return `${h}h ${m.toString().padStart(2, '0')}min`;
+}
+
 export default function PanelScreen() {
   const router = useRouter();
   const now = useNow();
   const [guard, setGuard] = useState('');
+  const [turno, setTurno] = useState<Turno | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [finalizando, setFinalizando] = useState(false);
 
   const load = useCallback(async () => {
     const g = (await session.getGuard()) || '';
+    const turnoId = await session.getTurnoId();
     setGuard(g);
     if (!g) {
       router.replace('/');
       return;
     }
+    if (!turnoId) {
+      router.replace('/servicio');
+      return;
+    }
     try {
-      const list = await api.listEvents(g);
+      const [t, list] = await Promise.all([
+        api.getActiveTurno(g),
+        api.listEvents(g, turnoId),
+      ]);
+      if (!t || t.status !== 'activo') {
+        await session.clear();
+        router.replace('/');
+        return;
+      }
+      setTurno(t);
       setEvents(list);
     } catch (e) {
-      console.log('load events err', e);
+      console.log('load panel err', e);
     }
   }, [router]);
 
@@ -59,27 +83,40 @@ export default function PanelScreen() {
     setRefreshing(false);
   };
 
-  const lastEntrada = events.find(e => e.type === 'entrada');
-  const lastSalida = events.find(e => e.type === 'salida');
-  const enTurno = lastEntrada && (!lastSalida || new Date(lastEntrada.timestamp) > new Date(lastSalida.timestamp));
-
-  const lastRondaInicio = events.find(e => e.type === 'ronda_inicio');
-  const lastRondaFin = events.find(e => e.type === 'ronda_fin');
-  const enRonda = lastRondaInicio && (!lastRondaFin || new Date(lastRondaInicio.timestamp) > new Date(lastRondaFin.timestamp));
-
   const registerEvent = async (type: string) => {
     try {
       try { await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); } catch {}
-      await api.createEvent({ guard, type });
+      await api.createEvent({ guard, type, turno_id: turno?.id });
       await load();
     } catch (e) {
       console.log('register err', e);
     }
   };
 
-  const changeGuard = async () => {
-    await session.clear();
-    router.replace('/');
+  const confirmFinalizar = () => {
+    Alert.alert(
+      'Finalizar turno',
+      'Se generará un resumen del turno con incidencias, llamadas y accesos, y podrás exportarlo. ¿Continuar?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Finalizar', style: 'destructive', onPress: doFinalizar },
+      ]
+    );
+  };
+
+  const doFinalizar = async () => {
+    if (!turno) return;
+    setFinalizando(true);
+    try {
+      try { await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); } catch {}
+      await api.finalizarTurno(turno.id);
+      router.replace({ pathname: '/resumen-turno', params: { turnoId: turno.id } });
+    } catch (e) {
+      console.log('finalizar err', e);
+      Alert.alert('Error', 'No se pudo finalizar el turno. Inténtalo de nuevo.');
+    } finally {
+      setFinalizando(false);
+    }
   };
 
   return (
@@ -90,12 +127,10 @@ export default function PanelScreen() {
       >
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.hello}>Guardia</Text>
+            <Text style={styles.hello}>Vigilante</Text>
             <Text style={styles.guardName} testID="guard-name-label">{guard || '—'}</Text>
+            {!!turno && <Text style={styles.serviceName}>{turno.service_name}</Text>}
           </View>
-          <Pressable testID="change-guard-btn" onPress={changeGuard} style={styles.changeBtn}>
-            <MaterialCommunityIcons name="account-switch" size={22} color={theme.color.onSurfaceTertiary} />
-          </Pressable>
         </View>
 
         <View style={styles.clockCard}>
@@ -106,61 +141,58 @@ export default function PanelScreen() {
           />
           <Text style={styles.clockDate}>{formatDate(now)}</Text>
           <Text style={styles.clock} testID="realtime-clock">{formatTime(now)}</Text>
-          <View style={[styles.statusPill, enTurno ? styles.statusOn : styles.statusOff]}>
-            <View style={[styles.statusDot, enTurno ? { backgroundColor: theme.color.success } : { backgroundColor: theme.color.info }]} />
-            <Text style={styles.statusText}>{enTurno ? 'EN TURNO' : 'FUERA DE TURNO'}</Text>
+          <View style={[styles.statusPill, styles.statusOn]}>
+            <View style={[styles.statusDot, { backgroundColor: theme.color.success }]} />
+            <Text style={styles.statusText}>TURNO EN CURSO · {formatElapsed(turno?.start_time, now)}</Text>
           </View>
         </View>
 
-        <View style={styles.ficharRow}>
+        <View style={styles.finalizarWrap}>
           <Pressable
-            testID="fichar-entrada-btn"
-            style={[styles.ficharBtn, { backgroundColor: theme.color.success }, enTurno && { opacity: 0.4 }]}
-            disabled={!!enTurno}
-            onPress={() => registerEvent('entrada')}
+            testID="finalizar-turno-btn"
+            style={({ pressed }) => [styles.finalizarBtn, pressed && { opacity: 0.85 }]}
+            onPress={confirmFinalizar}
+            disabled={finalizando}
           >
-            <MaterialCommunityIcons name="login" size={26} color={theme.color.onSurface} />
-            <Text style={styles.ficharText}>FICHAR ENTRADA</Text>
-          </Pressable>
-          <Pressable
-            testID="fichar-salida-btn"
-            style={[styles.ficharBtn, { backgroundColor: theme.color.error }, !enTurno && { opacity: 0.4 }]}
-            disabled={!enTurno}
-            onPress={() => registerEvent('salida')}
-          >
-            <MaterialCommunityIcons name="logout" size={26} color={theme.color.onSurface} />
-            <Text style={styles.ficharText}>FICHAR SALIDA</Text>
+            {finalizando ? (
+              <ActivityIndicator color={theme.color.onBrand} />
+            ) : (
+              <>
+                <MaterialCommunityIcons name="flag-checkered" size={24} color={theme.color.onBrand} />
+                <Text style={styles.finalizarText}>FINALIZAR TURNO</Text>
+              </>
+            )}
           </Pressable>
         </View>
 
         <Text style={styles.sectionTitle}>Acciones rápidas</Text>
         <View style={styles.grid}>
           <QuickAction
-            icon={enRonda ? 'flag-checkered' : 'walk'}
-            label={enRonda ? 'FIN RONDA' : 'INICIAR RONDA'}
-            testID="ronda-btn"
-            color={enRonda ? theme.color.warning : theme.color.brand}
-            onPress={() => registerEvent(enRonda ? 'ronda_fin' : 'ronda_inicio')}
-          />
-          <QuickAction
             icon="alert-octagon"
             label="INCIDENCIA"
             testID="incidencia-btn"
-            color={theme.color.error}
+            color={theme.color.brand}
             onPress={() => router.push('/incidencia')}
+          />
+          <QuickAction
+            icon="phone-in-talk"
+            label="LLAMADA CENTRALITA"
+            testID="llamada-btn"
+            color={theme.color.onSurface}
+            onPress={() => router.push('/llamada')}
           />
           <QuickAction
             icon="coffee"
             label="DESCANSO"
             testID="descanso-btn"
-            color={theme.color.info}
+            color={theme.color.onSurface}
             onPress={() => registerEvent('descanso_inicio')}
           />
           <QuickAction
             icon="coffee-off"
             label="FIN DESCANSO"
             testID="fin-descanso-btn"
-            color={theme.color.info}
+            color={theme.color.onSurface}
             onPress={() => registerEvent('descanso_fin')}
           />
         </View>
@@ -168,15 +200,15 @@ export default function PanelScreen() {
         <Text style={styles.sectionTitle}>Últimos registros</Text>
         <View style={{ paddingHorizontal: theme.space.lg, gap: 8 }}>
           {events.slice(0, 5).length === 0 && (
-            <Text style={styles.empty}>Sin registros aún. Ficha tu entrada para comenzar.</Text>
+            <Text style={styles.empty}>Sin registros aún en este turno.</Text>
           )}
           {events.slice(0, 5).map(ev => (
             <View key={ev.id} style={styles.eventRow}>
               <View style={styles.eventIcon}>
-                <MaterialCommunityIcons name={eventIcon(ev.type)} size={18} color={theme.color.brand} />
+                <MaterialCommunityIcons name={(EVENT_ICONS[ev.type] || 'circle-outline') as any} size={18} color={theme.color.brand} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.eventTitle}>{eventLabel(ev.type)}</Text>
+                <Text style={styles.eventTitle}>{EVENT_LABELS[ev.type] || ev.type}</Text>
                 {!!ev.note && <Text style={styles.eventNote} numberOfLines={1}>{ev.note}</Text>}
               </View>
               <Text style={styles.eventTime}>{new Date(ev.timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</Text>
@@ -186,25 +218,6 @@ export default function PanelScreen() {
       </ScrollView>
     </SafeAreaView>
   );
-}
-
-function eventLabel(t: string) {
-  const m: Record<string, string> = {
-    entrada: 'Entrada', salida: 'Salida',
-    ronda_inicio: 'Inicio de ronda', ronda_fin: 'Fin de ronda',
-    tarea: 'Tarea', incidencia: 'Incidencia',
-    descanso_inicio: 'Inicio descanso', descanso_fin: 'Fin descanso',
-  };
-  return m[t] || t;
-}
-function eventIcon(t: string): any {
-  const m: Record<string, string> = {
-    entrada: 'login', salida: 'logout',
-    ronda_inicio: 'walk', ronda_fin: 'flag-checkered',
-    tarea: 'check-circle-outline', incidencia: 'alert-octagon',
-    descanso_inicio: 'coffee', descanso_fin: 'coffee-off',
-  };
-  return m[t] || 'circle-outline';
 }
 
 function QuickAction({ icon, label, color, testID, onPress }: any) {
@@ -224,12 +237,7 @@ const styles = StyleSheet.create({
   },
   hello: { color: theme.color.onSurfaceTertiary, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 },
   guardName: { color: theme.color.onSurface, fontSize: 22, fontWeight: '700' },
-  changeBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: theme.color.surfaceSecondary,
-    borderWidth: 1, borderColor: theme.color.border,
-  },
+  serviceName: { color: theme.color.brand, fontSize: 13, fontWeight: '700', marginTop: 2 },
   clockCard: {
     marginHorizontal: theme.space.lg,
     padding: theme.space.xl,
@@ -257,27 +265,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginTop: 12,
   },
-  statusOn: { borderColor: theme.color.success, backgroundColor: '#4CAF5033' },
-  statusOff: { borderColor: theme.color.border, backgroundColor: theme.color.surfaceTertiary },
+  statusOn: { borderColor: theme.color.success, backgroundColor: '#43A04733' },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
   statusText: { color: theme.color.onSurface, fontSize: 12, fontWeight: '700', letterSpacing: 1 },
 
-  ficharRow: {
-    flexDirection: 'row', gap: 8,
+  finalizarWrap: {
     paddingHorizontal: theme.space.lg,
     marginTop: theme.space.lg,
   },
-  ficharBtn: {
-    flex: 1,
-    paddingVertical: 20,
+  finalizarBtn: {
+    backgroundColor: theme.color.brand,
     borderRadius: theme.radius.md,
+    paddingVertical: 20,
     alignItems: 'center', justifyContent: 'center',
-    gap: 6,
+    flexDirection: 'row', gap: 10,
   },
-  ficharText: {
-    color: theme.color.onSurface, fontWeight: '800',
-    letterSpacing: 1, fontSize: 12,
+  finalizarText: {
+    color: theme.color.onBrand, fontWeight: '800',
+    letterSpacing: 1.4, fontSize: 15,
   },
+
   sectionTitle: {
     color: theme.color.onSurfaceTertiary,
     fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.5,
