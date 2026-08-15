@@ -43,6 +43,9 @@ export const EVENT_LABELS: Record<string, string> = {
   salida_nave: 'Salida de Nave',
   llamada_centralita: 'Llamada Centralita',
   chequeo: 'Chequeo',
+  accion_nave: 'Acción de Nave',
+  vehiculo_vandalizado: 'Vehículo Vandalizado',
+  vehiculo_reparado: 'Vehículo Reparado / Sin Daños',
 };
 
 export const EVENT_ICONS: Record<string, string> = {
@@ -58,18 +61,22 @@ export const EVENT_ICONS: Record<string, string> = {
   salida_nave: 'location-exit',
   llamada_centralita: 'phone-in-talk',
   chequeo: 'checkbox-marked-circle-outline',
+  accion_nave: 'clipboard-check-outline',
+  vehiculo_vandalizado: 'car-wrench',
+  vehiculo_reparado: 'car-outline',
 };
 
-export const VEHICLE_TIPOS = ['Camión', 'Grúa', 'Grúa TO', 'Contenedor', 'Furgoneta', 'Otro'];
+export const VEHICLE_TIPOS = ['Camión', 'Grúa', 'Contenedor', 'Furgoneta', 'Otro'];
 
 export function vehicleIcon(tipo: string): any {
   const m: Record<string, string> = {
     'Camión': 'truck',
     'Grúa': 'crane',
-    'Grúa TO': 'crane',
     'Contenedor': 'archive-outline',
     'Furgoneta': 'van-utility',
     'Otro': 'car',
   };
   return m[tipo] || 'help-circle-outline';
 }
+
+export const MADRID_TZ = 'Europe/Madrid';

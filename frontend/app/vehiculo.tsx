@@ -7,13 +7,16 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { theme, VEHICLE_TIPOS, vehicleIcon } from '@/src/theme';
 import { api, session } from '@/src/api';
+import { useToast } from '@/src/toast';
 
 export default function VehiculoModal() {
   const router = useRouter();
+  const toast = useToast();
   const { naveId, zone: zoneParam, id } = useLocalSearchParams<{ naveId: string; zone?: string; id?: string }>();
   const isEdit = !!id;
 
   const [guard, setGuard] = useState('anon');
+  const [turnoId, setTurnoId] = useState<string | undefined>(undefined);
   const [tipo, setTipo] = useState(VEHICLE_TIPOS[0]);
   const [matricula, setMatricula] = useState('');
   const [vandalizado, setVandalizado] = useState(false);
@@ -26,6 +29,7 @@ export default function VehiculoModal() {
 
   const load = useCallback(async () => {
     setGuard((await session.getGuard()) || 'anon');
+    setTurnoId((await session.getTurnoId()) || undefined);
     if (isEdit && naveId) {
       try {
         const list = await api.listVehicles(String(naveId));
@@ -84,6 +88,7 @@ export default function VehiculoModal() {
           tipo, matricula: matricula.trim().toUpperCase(), vandalizado,
           vandalizado_detalle: vandalizado ? (detalle.trim() || undefined) : null,
           photo_path,
+          guard, turno_id: turnoId,
         });
       } else {
         await api.createVehicle({
@@ -93,9 +98,11 @@ export default function VehiculoModal() {
           vandalizado,
           vandalizado_detalle: vandalizado ? (detalle.trim() || undefined) : undefined,
           photo_path: photo_path || undefined,
+          guard, turno_id: turnoId,
         });
       }
       try { await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+      toast.show(vandalizado ? 'Vandalismo registrado en el control' : 'Vehículo actualizado', vandalizado ? 'car-wrench' : 'check-circle');
       router.back();
     } catch (e) {
       setError('No se pudo guardar el vehículo');

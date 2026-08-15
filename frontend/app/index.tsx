@@ -9,6 +9,7 @@ import {
   Platform,
   Keyboard,
   TouchableWithoutFeedback,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -47,6 +48,16 @@ export default function IndexScreen() {
     router.replace('/servicio');
   };
 
+  const onViewHistory = async () => {
+    const clean = name.trim();
+    if (!clean) {
+      setError('Introduce tu nombre para ver tu historial');
+      return;
+    }
+    try { await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
+    router.push({ pathname: '/historial', params: { guard: clean } });
+  };
+
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
@@ -63,7 +74,7 @@ export default function IndexScreen() {
                 style={styles.heroBg}
               />
               <View style={styles.logo}>
-                <MaterialCommunityIcons name="shield-home" size={64} color={theme.color.brand} />
+                <Image source={require('@/assets/images/logo-mark.png')} style={styles.logoImg} resizeMode="contain" />
               </View>
               <Text style={styles.appName}>
                 <Text style={{ color: theme.color.brand }}>ASER</Text>
@@ -97,6 +108,14 @@ export default function IndexScreen() {
                 <Text style={styles.primaryBtnText}>CONTINUAR</Text>
                 <MaterialCommunityIcons name="arrow-right" size={22} color={theme.color.onBrand} />
               </Pressable>
+              <Pressable
+                testID="view-history-button"
+                style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.7 }]}
+                onPress={onViewHistory}
+              >
+                <MaterialCommunityIcons name="history" size={18} color={theme.color.onSurfaceSecondary} />
+                <Text style={styles.secondaryBtnText}>Ver historial de turnos</Text>
+              </Pressable>
             </View>
           </View>
         </TouchableWithoutFeedback>
@@ -117,12 +136,14 @@ const styles = StyleSheet.create({
   },
   heroBg: { ...StyleSheet.absoluteFillObject },
   logo: {
-    width: 120, height: 120, borderRadius: 60,
+    width: 132, height: 132, borderRadius: 66,
     backgroundColor: theme.color.surfaceSecondary,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: theme.color.border,
     marginBottom: 16,
+    padding: 18,
   },
+  logoImg: { width: '100%', height: '100%' },
   appName: {
     fontSize: 28, fontWeight: '800', color: theme.color.onSurface,
     letterSpacing: 2,
@@ -163,5 +184,12 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     color: theme.color.onBrand, fontSize: 16, fontWeight: '800',
     letterSpacing: 1.4,
+  },
+  secondaryBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 14,
+  },
+  secondaryBtnText: {
+    color: theme.color.onSurfaceSecondary, fontSize: 13, fontWeight: '600',
   },
 });

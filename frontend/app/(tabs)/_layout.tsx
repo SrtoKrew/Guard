@@ -47,16 +47,6 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="tareas"
-        options={{
-          title: 'Tareas',
-          tabBarTestID: 'tab-tareas',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="clipboard-check" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="control"
         options={{
           title: 'Control',

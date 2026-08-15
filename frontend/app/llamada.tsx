@@ -6,9 +6,11 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { theme } from '@/src/theme';
 import { api, session } from '@/src/api';
+import { useToast } from '@/src/toast';
 
 export default function Llamada() {
   const router = useRouter();
+  const toast = useToast();
   const [guard, setGuard] = useState('');
   const [turnoId, setTurnoId] = useState<string | null>(null);
   const [note, setNote] = useState('');
@@ -33,6 +35,7 @@ export default function Llamada() {
         turno_id: turnoId || undefined,
       });
       try { await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+      toast.show('Llamada registrada en el control', 'phone-in-talk');
       router.back();
     } catch (e) {
       setError('No se pudo registrar la llamada');

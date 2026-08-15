@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 
 import { theme, EVENT_LABELS, EVENT_ICONS } from '@/src/theme';
 import { api, session, Event, Turno } from '@/src/api';
+import { useToast } from '@/src/toast';
 
 function useNow() {
   const [now, setNow] = useState(new Date());
@@ -19,14 +20,17 @@ function useNow() {
 }
 
 function formatTime(d: Date) {
-  const hh = d.getHours().toString().padStart(2, '0');
-  const mm = d.getMinutes().toString().padStart(2, '0');
-  const ss = d.getSeconds().toString().padStart(2, '0');
-  return `${hh}:${mm}:${ss}`;
+  return d.toLocaleTimeString('es-ES', {
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    timeZone: 'Europe/Madrid',
+  });
 }
 
 function formatDate(d: Date) {
-  return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return d.toLocaleDateString('es-ES', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    timeZone: 'Europe/Madrid',
+  });
 }
 
 function formatElapsed(startIso?: string, now?: Date) {
@@ -39,6 +43,7 @@ function formatElapsed(startIso?: string, now?: Date) {
 
 export default function PanelScreen() {
   const router = useRouter();
+  const toast = useToast();
   const now = useNow();
   const [guard, setGuard] = useState('');
   const [turno, setTurno] = useState<Turno | null>(null);
@@ -83,11 +88,12 @@ export default function PanelScreen() {
     setRefreshing(false);
   };
 
-  const registerEvent = async (type: string) => {
+  const registerEvent = async (type: string, successMsg?: string) => {
     try {
       try { await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); } catch {}
       await api.createEvent({ guard, type, turno_id: turno?.id });
       await load();
+      if (successMsg) toast.show(successMsg, 'check-circle');
     } catch (e) {
       console.log('register err', e);
     }
@@ -141,9 +147,14 @@ export default function PanelScreen() {
           />
           <Text style={styles.clockDate}>{formatDate(now)}</Text>
           <Text style={styles.clock} testID="realtime-clock">{formatTime(now)}</Text>
+          <Text style={styles.elapsedText} testID="elapsed-time">
+            Tiempo de servicio: {formatElapsed(turno?.start_time, now)}
+          </Text>
           <View style={[styles.statusPill, styles.statusOn]}>
             <View style={[styles.statusDot, { backgroundColor: theme.color.success }]} />
-            <Text style={styles.statusText}>TURNO EN CURSO · {formatElapsed(turno?.start_time, now)}</Text>
+            <Text style={styles.statusText}>
+              TURNO {turno?.turno_tipo === 'dia' ? 'DE DÍA' : 'NOCTURNO'}
+            </Text>
           </View>
         </View>
 
@@ -186,14 +197,14 @@ export default function PanelScreen() {
             label="DESCANSO"
             testID="descanso-btn"
             color={theme.color.onSurface}
-            onPress={() => registerEvent('descanso_inicio')}
+            onPress={() => registerEvent('descanso_inicio', 'Descanso registrado en el control')}
           />
           <QuickAction
             icon="coffee-off"
             label="FIN DESCANSO"
             testID="fin-descanso-btn"
             color={theme.color.onSurface}
-            onPress={() => registerEvent('descanso_fin')}
+            onPress={() => registerEvent('descanso_fin', 'Fin de descanso registrado en el control')}
           />
         </View>
 
@@ -208,10 +219,12 @@ export default function PanelScreen() {
                 <MaterialCommunityIcons name={(EVENT_ICONS[ev.type] || 'circle-outline') as any} size={18} color={theme.color.brand} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.eventTitle}>{EVENT_LABELS[ev.type] || ev.type}</Text>
-                {!!ev.note && <Text style={styles.eventNote} numberOfLines={1}>{ev.note}</Text>}
+                <Text style={styles.eventTitle}>
+                  {ev.type === 'accion_nave' && ev.note ? ev.note : (EVENT_LABELS[ev.type] || ev.type)}
+                </Text>
+                {!!ev.note && ev.type !== 'accion_nave' && <Text style={styles.eventNote} numberOfLines={1}>{ev.note}</Text>}
               </View>
-              <Text style={styles.eventTime}>{new Date(ev.timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</Text>
+              <Text style={styles.eventTime}>{new Date(ev.timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' })}</Text>
             </View>
           ))}
         </View>
@@ -257,6 +270,10 @@ const styles = StyleSheet.create({
     fontSize: 64, fontWeight: '800',
     letterSpacing: 2,
     fontVariant: ['tabular-nums'],
+  },
+  elapsedText: {
+    color: theme.color.onSurfaceSecondary,
+    fontSize: 12, fontWeight: '600', marginTop: 4,
   },
   statusPill: {
     flexDirection: 'row', alignItems: 'center', gap: 8,

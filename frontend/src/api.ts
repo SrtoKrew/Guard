@@ -17,7 +17,11 @@ async function req<T = any>(path: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
-export type Nave = { id: string; name: string; address?: string; notes?: string; service_name?: string; created_at: string };
+export type Nave = {
+  id: string; name: string; address?: string; notes?: string; service_name?: string;
+  has_access_buttons: boolean; check_items: string[]; custom_actions: string[]; has_vehicles: boolean;
+  created_at: string;
+};
 export type Event = {
   id: string;
   guard: string;
@@ -25,6 +29,7 @@ export type Event = {
   nave_id?: string;
   nave_name?: string;
   note?: string;
+  photo_path?: string;
   turno_id?: string;
   timestamp: string;
 };
@@ -50,13 +55,17 @@ export type Task = {
   done_at?: string;
   created_at: string;
 };
+export type TurnoOpcion = { tipo: 'dia' | 'noche'; label: string; horario: string };
 export type Turno = {
   id: string;
   guard: string;
   service_name: string;
+  turno_tipo?: 'dia' | 'noche';
   start_time: string;
+  scheduled_end?: string;
   end_time?: string;
   status: 'activo' | 'finalizado';
+  auto_finalizado?: boolean;
   summary?: {
     total_eventos: number;
     incidencias: number;
@@ -95,8 +104,9 @@ export const api = {
   // Servicios
   listServices: () => req<{ name: string }[]>('/services'),
   // Turnos
-  startTurno: (guard: string, service_name: string) =>
-    req<Turno>('/turnos', { method: 'POST', body: JSON.stringify({ guard, service_name }) }),
+  turnoOpciones: () => req<TurnoOpcion[]>('/turnos/opciones'),
+  startTurno: (guard: string, service_name: string, turno_tipo: string) =>
+    req<Turno>('/turnos', { method: 'POST', body: JSON.stringify({ guard, service_name, turno_tipo }) }),
   getActiveTurno: (guard: string) => req<Turno | null>(`/turnos/active?guard=${encodeURIComponent(guard)}`),
   getTurno: (id: string) => req<Turno>(`/turnos/${id}`),
   listTurnos: (guard?: string) => req<Turno[]>(`/turnos${guard ? `?guard=${encodeURIComponent(guard)}` : ''}`),
@@ -106,6 +116,7 @@ export const api = {
   createNave: (payload: { name: string; address?: string; notes?: string }) =>
     req<Nave>('/naves', { method: 'POST', body: JSON.stringify(payload) }),
   deleteNave: (id: string) => req(`/naves/${id}`, { method: 'DELETE' }),
+  reorderNaves: (ids: string[]) => req('/naves/reorder', { method: 'POST', body: JSON.stringify({ ids }) }),
   // Events
   listEvents: (guard?: string, turnoId?: string) => {
     const params = new URLSearchParams();
@@ -120,6 +131,7 @@ export const api = {
     nave_id?: string;
     nave_name?: string;
     note?: string;
+    photo_path?: string;
     turno_id?: string;
   }) => req<Event>('/events', { method: 'POST', body: JSON.stringify(payload) }),
   deleteEvent: (id: string) => req(`/events/${id}`, { method: 'DELETE' }),
@@ -149,9 +161,9 @@ export const api = {
   deleteTask: (id: string) => req(`/tasks/${id}`, { method: 'DELETE' }),
   // Vehículos
   listVehicles: (naveId: string) => req<Vehicle[]>(`/naves/${naveId}/vehiculos`),
-  createVehicle: (payload: { nave_id: string; tipo: string; matricula: string; zone: string; vandalizado?: boolean; vandalizado_detalle?: string; photo_path?: string }) =>
+  createVehicle: (payload: { nave_id: string; tipo: string; matricula: string; zone: string; vandalizado?: boolean; vandalizado_detalle?: string; photo_path?: string; guard?: string; turno_id?: string }) =>
     req<Vehicle>('/vehiculos', { method: 'POST', body: JSON.stringify(payload) }),
-  updateVehicle: (id: string, payload: Partial<{ tipo: string; matricula: string; zone: string; vandalizado: boolean; vandalizado_detalle?: string | null; photo_path?: string | null }>) =>
+  updateVehicle: (id: string, payload: Partial<{ tipo: string; matricula: string; zone: string; vandalizado: boolean; vandalizado_detalle?: string | null; photo_path?: string | null; guard?: string; turno_id?: string }>) =>
     req<Vehicle>(`/vehiculos/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   deleteVehicle: (id: string) => req(`/vehiculos/${id}`, { method: 'DELETE' }),
   reorderVehicles: (nave_id: string, zone: string, ids: string[]) =>

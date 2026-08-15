@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, FlatList, RefreshControl, Alert, Linking, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, FlatList, RefreshControl, Alert, Linking, Platform, Image as RNImage } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
@@ -15,6 +15,8 @@ const EVENT_LABEL: Record<string, string> = {
   descanso_inicio: 'Inicio descanso', descanso_fin: 'Fin descanso',
   entrada_nave: 'Entrada a Nave', salida_nave: 'Salida de Nave',
   llamada_centralita: 'Llamada Centralita', chequeo: 'Chequeo',
+  accion_nave: 'Acción de Nave',
+  vehiculo_vandalizado: 'Vehículo Vandalizado', vehiculo_reparado: 'Vehículo Reparado / Sin Daños',
 };
 const EVENT_ICON: Record<string, string> = {
   entrada: 'login', salida: 'logout',
@@ -23,6 +25,8 @@ const EVENT_ICON: Record<string, string> = {
   descanso_inicio: 'coffee', descanso_fin: 'coffee-off',
   entrada_nave: 'location-enter', salida_nave: 'location-exit',
   llamada_centralita: 'phone-in-talk', chequeo: 'checkbox-marked-circle-outline',
+  accion_nave: 'clipboard-check-outline',
+  vehiculo_vandalizado: 'car-wrench', vehiculo_reparado: 'car-outline',
 };
 const EVENT_COLOR: Record<string, string> = {
   entrada: theme.color.success, salida: theme.color.error,
@@ -31,19 +35,23 @@ const EVENT_COLOR: Record<string, string> = {
   descanso_inicio: theme.color.onSurface, descanso_fin: theme.color.onSurface,
   entrada_nave: theme.color.success, salida_nave: theme.color.brand,
   llamada_centralita: theme.color.onSurface, chequeo: theme.color.onSurface,
+  accion_nave: theme.color.onSurface,
+  vehiculo_vandalizado: theme.color.error, vehiculo_reparado: theme.color.success,
 };
 
 export default function ControlScreen() {
   const [events, setEvents] = useState<Event[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [guard, setGuard] = useState('');
-  const [filter, setFilter] = useState<'all' | 'today'>('all');
+  const [turnoId, setTurnoId] = useState<string | undefined>(undefined);
 
   const load = useCallback(async () => {
     const g = (await session.getGuard()) || '';
+    const t = (await session.getTurnoId()) || undefined;
     setGuard(g);
+    setTurnoId(t);
     try {
-      const list = await api.listEvents(g);
+      const list = await api.listEvents(g, t);
       setEvents(list);
     } catch (e) {
       console.log('events err', e);
@@ -52,17 +60,11 @@ export default function ControlScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const filtered = filter === 'today'
-    ? events.filter(e => {
-        const d = new Date(e.timestamp);
-        const now = new Date();
-        return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-      })
-    : events;
+  const filtered = events;
 
   const openExport = async (kind: 'pdf' | 'excel') => {
     try { await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
-    const url = kind === 'pdf' ? api.exportPdfUrl({ guard }) : api.exportExcelUrl({ guard });
+    const url = kind === 'pdf' ? api.exportPdfUrl({ guard, turnoId }) : api.exportExcelUrl({ guard, turnoId });
     try {
       await Linking.openURL(url);
     } catch {
@@ -81,12 +83,7 @@ export default function ControlScreen() {
     <SafeAreaView style={styles.root} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>Control horario</Text>
-        <Text style={styles.subtitle}>{filtered.length} registros</Text>
-      </View>
-
-      <View style={styles.chipRow}>
-        <Chip label="Todos" active={filter === 'all'} onPress={() => setFilter('all')} testID="filter-all" />
-        <Chip label="Hoy" active={filter === 'today'} onPress={() => setFilter('today')} testID="filter-today" />
+        <Text style={styles.subtitle}>{filtered.length} registros de este turno</Text>
       </View>
 
       <FlatList
@@ -111,8 +108,8 @@ export default function ControlScreen() {
               style={styles.eventCard}
             >
               <View style={styles.timeCol}>
-                <Text style={styles.time}>{d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</Text>
-                <Text style={styles.date}>{d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })}</Text>
+                <Text style={styles.time}>{d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' })}</Text>
+                <Text style={styles.date}>{d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', timeZone: 'Europe/Madrid' })}</Text>
               </View>
               <View style={[styles.iconCol, { borderLeftColor: color }]}>
                 <View style={[styles.iconCircle, { backgroundColor: color + '22', borderColor: color }]}>
@@ -120,9 +117,14 @@ export default function ControlScreen() {
                 </View>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.eventTitle}>{EVENT_LABEL[item.type] || item.type}</Text>
+                <Text style={styles.eventTitle}>
+                  {item.type === 'accion_nave' && item.note ? item.note : (EVENT_LABEL[item.type] || item.type)}
+                </Text>
                 {!!item.nave_name && <Text style={styles.eventNave}>{item.nave_name}</Text>}
-                {!!item.note && <Text style={styles.eventNote} numberOfLines={2}>{item.note}</Text>}
+                {!!item.note && item.type !== 'accion_nave' && <Text style={styles.eventNote} numberOfLines={2}>{item.note}</Text>}
+                {!!item.photo_path && (
+                  <RNImage source={{ uri: api.fileUrl(item.photo_path) }} style={styles.eventThumb} />
+                )}
               </View>
             </Pressable>
           );
@@ -140,14 +142,6 @@ export default function ControlScreen() {
         </Pressable>
       </View>
     </SafeAreaView>
-  );
-}
-
-function Chip({ label, active, onPress, testID }: any) {
-  return (
-    <Pressable testID={testID} onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
-      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -194,6 +188,7 @@ const styles = StyleSheet.create({
   eventTitle: { color: theme.color.onSurface, fontWeight: '600', fontSize: 15 },
   eventNave: { color: theme.color.brand, fontSize: 12, marginTop: 2, fontWeight: '600' },
   eventNote: { color: theme.color.onSurfaceTertiary, fontSize: 12, marginTop: 2 },
+  eventThumb: { width: 96, height: 72, borderRadius: theme.radius.sm, marginTop: 6, backgroundColor: theme.color.surfaceTertiary },
 
   empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
   emptyText: { color: theme.color.onSurface, fontSize: 18, fontWeight: '700' },

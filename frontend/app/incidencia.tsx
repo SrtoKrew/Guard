@@ -7,12 +7,15 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { theme } from '@/src/theme';
 import { api, Nave, session } from '@/src/api';
+import { useToast } from '@/src/toast';
 
 const TIPOS = ['Intrusión', 'Sabotaje', 'Fuego / Alarma', 'Avería', 'Vehículo', 'Puerta abierta', 'Otro'];
 
 export default function Incidencia() {
   const router = useRouter();
+  const toast = useToast();
   const [guard, setGuard] = useState('');
+  const [turnoId, setTurnoId] = useState<string | undefined>(undefined);
   const [tipo, setTipo] = useState<string>(TIPOS[0]);
   const [description, setDescription] = useState('');
   const [naves, setNaves] = useState<Nave[]>([]);
@@ -24,6 +27,7 @@ export default function Incidencia() {
 
   const load = useCallback(async () => {
     setGuard((await session.getGuard()) || 'anon');
+    setTurnoId((await session.getTurnoId()) || undefined);
     try { setNaves(await api.listNaves()); } catch {}
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -67,8 +71,10 @@ export default function Incidencia() {
         nave_id: selectedNave?.id,
         nave_name: selectedNave?.name,
         photo_path,
+        turno_id: turnoId,
       });
       try { await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+      toast.show('Incidencia registrada en el control', 'alert-octagon');
       router.back();
     } catch (e: any) {
       setError('No se pudo enviar el reporte');

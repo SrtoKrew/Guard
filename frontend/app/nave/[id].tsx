@@ -8,13 +8,13 @@ import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import Sortable from 'react-native-sortables';
 import type { SortableGridRenderItem } from 'react-native-sortables';
 
-import { theme, vehicleIcon } from '@/src/theme';
+import { theme, vehicleIcon, EVENT_LABELS } from '@/src/theme';
 import { api, Nave, Vehicle, NaveCheck, session } from '@/src/api';
-
-const CHECK_ITEMS = ['Luces traseras', 'Luces camiones'];
+import { useToast } from '@/src/toast';
 
 export default function NaveDetail() {
   const router = useRouter();
+  const toast = useToast();
   const { id } = useLocalSearchParams<{ id: string }>();
   const naveId = String(id);
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
@@ -26,6 +26,7 @@ export default function NaveDetail() {
   const [linea, setLinea] = useState<Vehicle[]>([]);
   const [frente, setFrente] = useState<Vehicle[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const g = (await session.getGuard()) || '';
@@ -34,11 +35,14 @@ export default function NaveDetail() {
     setTurnoId(t);
     try {
       const naves = await api.listNaves();
-      setNave(naves.find((n) => n.id === naveId) || null);
-      const vehicles = await api.listVehicles(naveId);
-      setLinea(vehicles.filter((v) => v.zone === 'linea'));
-      setFrente(vehicles.filter((v) => v.zone === 'frente'));
-      if (t) {
+      const found = naves.find((n) => n.id === naveId) || null;
+      setNave(found);
+      if (found?.has_vehicles) {
+        const vehicles = await api.listVehicles(naveId);
+        setLinea(vehicles.filter((v) => v.zone === 'linea'));
+        setFrente(vehicles.filter((v) => v.zone === 'frente'));
+      }
+      if (t && found && found.check_items.length > 0) {
         setChecks(await api.getNaveChecks(naveId, t));
       }
     } catch (e) {
@@ -50,13 +54,19 @@ export default function NaveDetail() {
 
   const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
 
-  const registerEvent = async (type: string) => {
+  const registerEvent = async (type: string, note?: string) => {
+    const key = note || type;
+    setBusyAction(key);
     try { await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); } catch {}
     try {
-      await api.createEvent({ guard, type, nave_id: naveId, nave_name: nave?.name, turno_id: turnoId || undefined });
+      await api.createEvent({ guard, type, note, nave_id: naveId, nave_name: nave?.name, turno_id: turnoId || undefined });
       try { await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+      const label = note || EVENT_LABELS[type] || type;
+      toast.show(`${label} registrado en el control`, 'check-circle');
     } catch (e) {
       console.log('register err', e);
+    } finally {
+      setBusyAction(null);
     }
   };
 
@@ -64,8 +74,9 @@ export default function NaveDetail() {
     if (!turnoId) return;
     try { await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
     try {
-      await api.toggleNaveCheck(naveId, item, guard, turnoId);
+      const result = await api.toggleNaveCheck(naveId, item, guard, turnoId);
       setChecks(await api.getNaveChecks(naveId, turnoId));
+      toast.show(`${item} ${result.checked ? 'verificado' : 'desmarcado'}`, 'check-circle');
     } catch (e) {
       console.log('check err', e);
     }
@@ -98,13 +109,27 @@ export default function NaveDetail() {
     <VehicleCard item={item} onPress={() => openEditVehicle(item)} onLongPress={() => deleteVehicle(item)} />
   ), []);
 
+  if (!nave) {
+    return (
+      <SafeAreaView style={styles.root} edges={['top']}>
+        <View style={styles.header}>
+          <Pressable testID="nave-back-btn" onPress={() => router.back()} style={styles.iconBtn}>
+            <MaterialCommunityIcons name="arrow-left" size={24} color={theme.color.onSurface} />
+          </Pressable>
+          <Text style={styles.title}>Nave</Text>
+          <View style={{ width: 40 }} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
       <View style={styles.header}>
         <Pressable testID="nave-back-btn" onPress={() => router.back()} style={styles.iconBtn}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={theme.color.onSurface} />
         </Pressable>
-        <Text style={styles.title} numberOfLines={1}>{nave?.name || 'Nave'}</Text>
+        <Text style={styles.title} numberOfLines={1}>{nave.name}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -113,96 +138,128 @@ export default function NaveDetail() {
         contentContainerStyle={{ paddingBottom: 60 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.color.brand} />}
       >
-        <Text style={[styles.sectionTitle, { paddingHorizontal: theme.space.lg, marginTop: theme.space.md }]}>Verificación de acceso</Text>
-        <View style={styles.checksRow}>
-          {CHECK_ITEMS.map((item) => {
-            const c = checks.find((x) => x.item_name === item);
-            const checked = !!c?.checked;
-            return (
-              <Pressable
-                key={item}
-                testID={`check-${item.replace(/\s+/g, '-')}`}
-                onPress={() => toggleCheck(item)}
-                style={[styles.checkBox, checked && styles.checkBoxOn]}
-              >
-                <MaterialCommunityIcons
-                  name={checked ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                  size={22}
-                  color={checked ? theme.color.success : theme.color.onSurfaceTertiary}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.checkLabel}>{item}</Text>
-                  {checked && !!c?.checked_by && (
-                    <Text style={styles.checkMeta}>
-                      {c.checked_by} · {c.checked_at ? new Date(c.checked_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : ''}
-                    </Text>
-                  )}
-                </View>
+        {!!nave.notes && <Text style={styles.notes}>{nave.notes}</Text>}
+
+        {nave.check_items.length > 0 && (
+          <>
+            <Text style={[styles.sectionTitle, { paddingHorizontal: theme.space.lg, marginTop: theme.space.md }]}>Verificación de acceso</Text>
+            <View style={styles.checksRow}>
+              {nave.check_items.map((item) => {
+                const c = checks.find((x) => x.item_name === item);
+                const checked = !!c?.checked;
+                return (
+                  <Pressable
+                    key={item}
+                    testID={`check-${item.replace(/\s+/g, '-')}`}
+                    onPress={() => toggleCheck(item)}
+                    style={[styles.checkBox, checked && styles.checkBoxOn]}
+                  >
+                    <MaterialCommunityIcons
+                      name={checked ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                      size={22}
+                      color={checked ? theme.color.success : theme.color.onSurfaceTertiary}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.checkLabel}>{item}</Text>
+                      {checked && !!c?.checked_by && (
+                        <Text style={styles.checkMeta}>
+                          {c.checked_by} · {c.checked_at ? new Date(c.checked_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }) : ''}
+                        </Text>
+                      )}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        )}
+
+        {nave.has_access_buttons && (
+          <View style={styles.accessRow}>
+            <Pressable testID="entrada-nave-btn" style={[styles.accessBtn, { backgroundColor: theme.color.success }]} onPress={() => registerEvent('entrada_nave')}>
+              <MaterialCommunityIcons name="location-enter" size={24} color={theme.color.onSurface} />
+              <Text style={styles.accessText}>ENTRADA A NAVE</Text>
+            </Pressable>
+            <Pressable testID="salida-nave-btn" style={[styles.accessBtn, { backgroundColor: theme.color.brand }]} onPress={() => registerEvent('salida_nave')}>
+              <MaterialCommunityIcons name="location-exit" size={24} color={theme.color.onBrand} />
+              <Text style={[styles.accessText, { color: theme.color.onBrand }]}>SALIDA DE NAVE</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {nave.custom_actions.length > 0 && (
+          <>
+            <Text style={[styles.sectionTitle, { paddingHorizontal: theme.space.lg, marginTop: theme.space.xl }]}>Acciones</Text>
+            <View style={styles.customRow}>
+              {nave.custom_actions.map((label) => (
+                <Pressable
+                  key={label}
+                  testID={`custom-action-${label.replace(/\s+/g, '-')}`}
+                  style={styles.customBtn}
+                  disabled={busyAction === label}
+                  onPress={() => registerEvent('accion_nave', label)}
+                >
+                  <MaterialCommunityIcons name="clipboard-check-outline" size={20} color={theme.color.onSurface} />
+                  <Text style={styles.customBtnText}>{label.toUpperCase()}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        )}
+
+        {nave.has_vehicles && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Vehículos en línea · Cochera ({linea.length})</Text>
+              <Pressable testID="add-vehicle-linea" onPress={() => openAddVehicle('linea')} style={styles.addBtn}>
+                <MaterialCommunityIcons name="plus" size={16} color={theme.color.brand} />
+                <Text style={styles.addBtnText}>AÑADIR</Text>
               </Pressable>
-            );
-          })}
-        </View>
+            </View>
+            <View style={{ paddingHorizontal: theme.space.lg }}>
+              {linea.length === 0 ? (
+                <Text style={styles.empty}>Sin vehículos en esta zona</Text>
+              ) : (
+                <Sortable.Grid
+                  columns={1}
+                  data={linea}
+                  renderItem={renderVehicle}
+                  keyExtractor={(item) => item.id}
+                  rowGap={10}
+                  customHandle
+                  hapticsEnabled
+                  onDragEnd={onDragEndLinea}
+                  scrollableRef={scrollRef}
+                />
+              )}
+            </View>
 
-        <View style={styles.accessRow}>
-          <Pressable testID="entrada-nave-btn" style={[styles.accessBtn, { backgroundColor: theme.color.success }]} onPress={() => registerEvent('entrada_nave')}>
-            <MaterialCommunityIcons name="location-enter" size={24} color={theme.color.onSurface} />
-            <Text style={styles.accessText}>ENTRADA A NAVE</Text>
-          </Pressable>
-          <Pressable testID="salida-nave-btn" style={[styles.accessBtn, { backgroundColor: theme.color.brand }]} onPress={() => registerEvent('salida_nave')}>
-            <MaterialCommunityIcons name="location-exit" size={24} color={theme.color.onBrand} />
-            <Text style={[styles.accessText, { color: theme.color.onBrand }]}>SALIDA DE NAVE</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Vehículos en línea · Cochera ({linea.length})</Text>
-          <Pressable testID="add-vehicle-linea" onPress={() => openAddVehicle('linea')} style={styles.addBtn}>
-            <MaterialCommunityIcons name="plus" size={16} color={theme.color.brand} />
-            <Text style={styles.addBtnText}>AÑADIR</Text>
-          </Pressable>
-        </View>
-        <View style={{ paddingHorizontal: theme.space.lg }}>
-          {linea.length === 0 ? (
-            <Text style={styles.empty}>Sin vehículos en esta zona</Text>
-          ) : (
-            <Sortable.Grid
-              columns={1}
-              data={linea}
-              renderItem={renderVehicle}
-              keyExtractor={(item) => item.id}
-              rowGap={10}
-              customHandle
-              hapticsEnabled
-              onDragEnd={onDragEndLinea}
-              scrollableRef={scrollRef}
-            />
-          )}
-        </View>
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Vehículos aparcados en frente ({frente.length})</Text>
-          <Pressable testID="add-vehicle-frente" onPress={() => openAddVehicle('frente')} style={styles.addBtn}>
-            <MaterialCommunityIcons name="plus" size={16} color={theme.color.brand} />
-            <Text style={styles.addBtnText}>AÑADIR</Text>
-          </Pressable>
-        </View>
-        <View style={{ paddingHorizontal: theme.space.lg }}>
-          {frente.length === 0 ? (
-            <Text style={styles.empty}>Sin vehículos en esta zona</Text>
-          ) : (
-            <Sortable.Grid
-              columns={1}
-              data={frente}
-              renderItem={renderVehicle}
-              keyExtractor={(item) => item.id}
-              rowGap={10}
-              customHandle
-              hapticsEnabled
-              onDragEnd={onDragEndFrente}
-              scrollableRef={scrollRef}
-            />
-          )}
-        </View>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Vehículos aparcados en frente ({frente.length})</Text>
+              <Pressable testID="add-vehicle-frente" onPress={() => openAddVehicle('frente')} style={styles.addBtn}>
+                <MaterialCommunityIcons name="plus" size={16} color={theme.color.brand} />
+                <Text style={styles.addBtnText}>AÑADIR</Text>
+              </Pressable>
+            </View>
+            <View style={{ paddingHorizontal: theme.space.lg }}>
+              {frente.length === 0 ? (
+                <Text style={styles.empty}>Sin vehículos en esta zona</Text>
+              ) : (
+                <Sortable.Grid
+                  columns={1}
+                  data={frente}
+                  renderItem={renderVehicle}
+                  keyExtractor={(item) => item.id}
+                  rowGap={10}
+                  customHandle
+                  hapticsEnabled
+                  onDragEnd={onDragEndFrente}
+                  scrollableRef={scrollRef}
+                />
+              )}
+            </View>
+          </>
+        )}
       </Animated.ScrollView>
     </SafeAreaView>
   );
@@ -247,6 +304,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: theme.space.md, paddingVertical: theme.space.sm },
   title: { flex: 1, textAlign: 'center', color: theme.color.onSurface, fontSize: 18, fontWeight: '800' },
   iconBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  notes: { color: theme.color.onSurfaceTertiary, fontSize: 13, paddingHorizontal: theme.space.lg, marginTop: theme.space.sm },
   sectionTitle: {
     color: theme.color.onSurfaceTertiary, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2,
     fontWeight: '700',
@@ -275,6 +333,15 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', gap: 6,
   },
   accessText: { color: theme.color.onSurface, fontWeight: '800', letterSpacing: 1, fontSize: 12 },
+
+  customRow: { paddingHorizontal: theme.space.lg, gap: 8 },
+  customBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: theme.color.surfaceSecondary,
+    borderWidth: 1, borderColor: theme.color.border,
+    borderRadius: theme.radius.md, paddingVertical: 16, paddingHorizontal: 14,
+  },
+  customBtnText: { color: theme.color.onSurface, fontWeight: '800', letterSpacing: 1, fontSize: 13 },
 
   empty: { color: theme.color.onSurfaceTertiary, fontSize: 13, paddingVertical: 8 },
 
