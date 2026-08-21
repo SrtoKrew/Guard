@@ -8,6 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { theme } from '@/src/theme';
 import { api, Nave, session } from '@/src/api';
 import { useToast } from '@/src/toast';
+import { getCurrentLocationSafe } from '@/src/location';
 
 const TIPOS = ['Intrusión', 'Sabotaje', 'Fuego / Alarma', 'Avería', 'Vehículo', 'Puerta abierta', 'Otro'];
 
@@ -64,6 +65,7 @@ export default function Incidencia() {
         photo_path = r.path;
         setUploading(false);
       }
+      const { lat, lng } = await getCurrentLocationSafe();
       await api.createIncident({
         guard,
         tipo,
@@ -72,6 +74,8 @@ export default function Incidencia() {
         nave_name: selectedNave?.name,
         photo_path,
         turno_id: turnoId,
+        lat,
+        lng,
       });
       try { await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
       toast.show('Incidencia registrada en el control', 'alert-octagon');

@@ -156,10 +156,8 @@ function NaveCardGrande({ item, onPress, onLongPress }: { item: Nave; onPress: (
           </View>
         </View>
       </Pressable>
-      <Sortable.Handle>
-        <View style={styles.handleGrande}>
-          <MaterialCommunityIcons name="drag-horizontal-variant" size={20} color={theme.color.onSurface} />
-        </View>
+      <Sortable.Handle style={styles.handleGrande}>
+        <MaterialCommunityIcons name="drag-horizontal-variant" size={20} color="#fff" />
       </Sortable.Handle>
     </View>
   );
@@ -176,12 +174,9 @@ function NaveCardLista({ item, onPress, onLongPress }: { item: Nave; onPress: ()
           <Text style={styles.listTitle}>{item.name}</Text>
           {!!item.notes && <Text style={styles.listNotes} numberOfLines={1}>{item.notes}</Text>}
         </View>
-        <MaterialCommunityIcons name="chevron-right" size={20} color={theme.color.onSurfaceTertiary} />
       </Pressable>
-      <Sortable.Handle>
-        <View style={styles.handleLista}>
-          <MaterialCommunityIcons name="drag-horizontal-variant" size={18} color={theme.color.onSurfaceTertiary} />
-        </View>
+      <Sortable.Handle style={styles.handleLista}>
+        <MaterialCommunityIcons name="drag-horizontal-variant" size={18} color={theme.color.onSurfaceTertiary} />
       </Sortable.Handle>
     </View>
   );
@@ -201,7 +196,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1, borderColor: theme.color.border,
     backgroundColor: theme.color.surfaceSecondary,
-    flexDirection: 'row',
   },
   cardContent: {
     flex: 1, padding: theme.space.lg,
@@ -219,8 +213,8 @@ const styles = StyleSheet.create({
   cardTitle: { color: theme.color.onSurface, fontSize: 22, fontWeight: '800', letterSpacing: 0.5 },
   cardNotes: { color: theme.color.onSurfaceTertiary, fontSize: 12, marginTop: 2 },
   handleGrande: {
-    width: 36, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    position: 'absolute', top: 10, right: 10,
+    width: 32, height: 32, alignItems: 'center', justifyContent: 'center',
   },
 
   listCard: {
@@ -238,7 +232,7 @@ const styles = StyleSheet.create({
   },
   listTitle: { color: theme.color.onSurface, fontSize: 16, fontWeight: '700' },
   listNotes: { color: theme.color.onSurfaceTertiary, fontSize: 12, marginTop: 1 },
-  handleLista: { width: 34, alignItems: 'center', justifyContent: 'center', borderLeftWidth: 1, borderLeftColor: theme.color.border },
+  handleLista: { width: 34, alignItems: 'center', justifyContent: 'center' },
 
   empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
   emptyText: { color: theme.color.onSurface, fontSize: 18, fontWeight: '700' },

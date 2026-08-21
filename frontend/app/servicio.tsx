@@ -7,6 +7,7 @@ import * as Haptics from 'expo-haptics';
 
 import { theme } from '@/src/theme';
 import { api, session, TurnoOpcion } from '@/src/api';
+import { getCurrentLocationSafe } from '@/src/location';
 
 export default function ServicioScreen() {
   const router = useRouter();
@@ -61,7 +62,8 @@ export default function ServicioScreen() {
     setLoadingKey(opcion.tipo);
     setError('');
     try {
-      const turno = await api.startTurno(guard, selectedService, opcion.tipo);
+      const { lat, lng } = await getCurrentLocationSafe();
+      const turno = await api.startTurno(guard, selectedService, opcion.tipo, lat, lng);
       await session.setTurnoId(turno.id);
       await session.setServiceName(selectedService);
       try { await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}

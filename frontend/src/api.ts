@@ -105,12 +105,13 @@ export const api = {
   listServices: () => req<{ name: string }[]>('/services'),
   // Turnos
   turnoOpciones: () => req<TurnoOpcion[]>('/turnos/opciones'),
-  startTurno: (guard: string, service_name: string, turno_tipo: string) =>
-    req<Turno>('/turnos', { method: 'POST', body: JSON.stringify({ guard, service_name, turno_tipo }) }),
+  startTurno: (guard: string, service_name: string, turno_tipo: string, lat?: number | null, lng?: number | null) =>
+    req<Turno>('/turnos', { method: 'POST', body: JSON.stringify({ guard, service_name, turno_tipo, lat, lng }) }),
   getActiveTurno: (guard: string) => req<Turno | null>(`/turnos/active?guard=${encodeURIComponent(guard)}`),
   getTurno: (id: string) => req<Turno>(`/turnos/${id}`),
   listTurnos: (guard?: string) => req<Turno[]>(`/turnos${guard ? `?guard=${encodeURIComponent(guard)}` : ''}`),
-  finalizarTurno: (id: string) => req<Turno>(`/turnos/${id}/finalizar`, { method: 'POST' }),
+  finalizarTurno: (id: string, lat?: number | null, lng?: number | null) =>
+    req<Turno>(`/turnos/${id}/finalizar`, { method: 'POST', body: JSON.stringify({ lat, lng }) }),
   // Naves
   listNaves: () => req<Nave[]>('/naves'),
   createNave: (payload: { name: string; address?: string; notes?: string }) =>
@@ -151,6 +152,8 @@ export const api = {
     description: string;
     photo_path?: string;
     turno_id?: string;
+    lat?: number | null;
+    lng?: number | null;
   }) => req<Incident>('/incidents', { method: 'POST', body: JSON.stringify(payload) }),
   // Tasks
   listTasks: () => req<Task[]>('/tasks'),

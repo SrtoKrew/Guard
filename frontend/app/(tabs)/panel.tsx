@@ -9,6 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { theme, EVENT_LABELS, EVENT_ICONS } from '@/src/theme';
 import { api, session, Event, Turno } from '@/src/api';
 import { useToast } from '@/src/toast';
+import { getCurrentLocationSafe } from '@/src/location';
 
 function useNow() {
   const [now, setNow] = useState(new Date());
@@ -115,7 +116,8 @@ export default function PanelScreen() {
     setFinalizando(true);
     try {
       try { await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); } catch {}
-      await api.finalizarTurno(turno.id);
+      const { lat, lng } = await getCurrentLocationSafe();
+      await api.finalizarTurno(turno.id, lat, lng);
       router.replace({ pathname: '/resumen-turno', params: { turnoId: turno.id } });
     } catch (e) {
       console.log('finalizar err', e);
